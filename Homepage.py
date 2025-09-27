@@ -51,7 +51,6 @@ st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/blob/main/s1%20(1
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
 with tab1:
-    
     import streamlit as st
     import pandas as pd
     import requests
@@ -72,28 +71,16 @@ with tab1:
 
 
     if 'question_queue' not in st.session_state:
-    st.session_state.question_queue = queue.Queue()
-if 'listening' not in st.session_state:
-    st.session_state.listening = True
-
-# Initialize TTS engine
-if 'tts_engine' not in st.session_state:
-    try:
-        system_platform = platform.system()
-        if system_platform == 'Windows':
-            # Use Windows driver
-            import pyttsx3
-            st.session_state.tts_engine = pyttsx3.init('sapi5')
-        elif system_platform == 'Linux':
-            # Linux driver (may not work on Streamlit Cloud if espeak is not installed)
-            import pyttsx3
-            st.session_state.tts_engine = pyttsx3.init('espeak')
-        else:
-            import pyttsx3
+        st.session_state.question_queue = queue.Queue()
+    if 'listening' not in st.session_state:
+        st.session_state.listening = True
+    if 'tts_engine' not in st.session_state:
+        try:
             st.session_state.tts_engine = pyttsx3.init()
-    except Exception as e:
-        st.warning(f"TTS not available: {e}")
-        st.session_state.tts_engine = None
+        except RuntimeError:
+            import pyttsx3.drivers
+            st.session_state.tts_engine = pyttsx3.drivers.sapi5.init()
+
 
 
     MISTRAL_API_KEY = 'nZwqy7s0iceaClHw0TfpW5sCw2mPeVta'

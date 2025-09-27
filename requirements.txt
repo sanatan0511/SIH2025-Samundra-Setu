@@ -11,9 +11,9 @@ SpeechRecognition==3.10.4
 gTTS==2.5.3
 Pillow==10.4.0
 scikit-learn==1.5.2
-torch==torch==2.8.0
-torchvision==0.23.0
-transformers==4.56.2
+torch==2.4.1
+torchvision==0.19.1
+transformers==4.44.2
 chromadb==0.5.5
 
 

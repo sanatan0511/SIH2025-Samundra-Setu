@@ -75,11 +75,17 @@ with tab1:
     if 'listening' not in st.session_state:
         st.session_state.listening = True
     if 'tts_engine' not in st.session_state:
-        try:
-            st.session_state.tts_engine = pyttsx3.init()
-        except RuntimeError:
-            import pyttsx3.drivers
-            st.session_state.tts_engine = pyttsx3.drivers.sapi5.init()
+    try:
+        system_platform = platform.system()
+        if system_platform == 'Windows':
+            # Use Windows driver
+            st.session_state.tts_engine = pyttsx3.init('sapi5')
+        else:
+            # Use espeak on Linux / other platforms
+            st.session_state.tts_engine = pyttsx3.init('espeak')
+    except Exception as e:
+        st.warning(f"TTS initialization failed: {e}")
+        st.session_state.tts_engine = None
 
 
 
@@ -1727,5 +1733,6 @@ with tab8:
     st.write("Learn more about our mission and team....")
     st.write("We Null pointers deep passion in Science and technology drives us to explore the depths of the oceans using advanced AI and multi-modal learning techniques. Our team is dedicated to leveraging cutting-edge technologies to analyze oceanographic data, providing insights that can help in environmental conservation, resource management, and scientific discovery.")
     st.write("References: MIT OPEN EDUCATION: FOR DEEP LEARNING COURSE,ZTM LEARNING,GOOGLE AI,OPENAI,DEEPLAI","SPECIAL THANKS TO JIMMY SIR AND MENTORS OF INTERNAL SIH 2025","GOOGLE SCHOLAR","ResearchGate","WIKIPEDIA")
+
 
 

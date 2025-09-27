@@ -1,0 +1,16 @@
+streamlit
+requests
+pandas
+numpy
+matplotlib
+seaborn
+folium
+streamlit-folium
+pyttsx3
+SpeechRecognition
+sqlite3
+torch
+torchvision
+chromadb
+Pillow
+scikit-learn

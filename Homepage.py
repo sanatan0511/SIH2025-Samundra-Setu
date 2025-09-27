@@ -47,10 +47,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/blob/main/s1%20(1)%20(2).mp4",loop = True)
+st.video("s1.mp4",loop = True)
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
 with tab1:
+    
     import streamlit as st
     import pandas as pd
     import requests
@@ -75,18 +76,14 @@ with tab1:
     if 'listening' not in st.session_state:
         st.session_state.listening = True
     if 'tts_engine' not in st.session_state:
-    try:
-        system_platform = platform.system()
-        if system_platform == 'Windows':
-            # Use Windows driver
-            st.session_state.tts_engine = pyttsx3.init('sapi5')
-        else:
-            # Use espeak on Linux / other platforms
-            st.session_state.tts_engine = pyttsx3.init('espeak')
-    except Exception as e:
-        st.warning(f"TTS initialization failed: {e}")
-        st.session_state.tts_engine = None
-
+        try:
+            st.session_state.tts_engine = pyttsx3.init()
+        except RuntimeError:
+            import pyttsx3.drivers
+            st.session_state.tts_engine = pyttsx3.drivers.sapi5.init()
+        except Exception as e:
+          st.warning(f"TTS initialization failed: {e}")
+          st.session_state.tts_engine = None
 
 
     MISTRAL_API_KEY = 'nZwqy7s0iceaClHw0TfpW5sCw2mPeVta'
@@ -1733,6 +1730,3 @@ with tab8:
     st.write("Learn more about our mission and team....")
     st.write("We Null pointers deep passion in Science and technology drives us to explore the depths of the oceans using advanced AI and multi-modal learning techniques. Our team is dedicated to leveraging cutting-edge technologies to analyze oceanographic data, providing insights that can help in environmental conservation, resource management, and scientific discovery.")
     st.write("References: MIT OPEN EDUCATION: FOR DEEP LEARNING COURSE,ZTM LEARNING,GOOGLE AI,OPENAI,DEEPLAI","SPECIAL THANKS TO JIMMY SIR AND MENTORS OF INTERNAL SIH 2025","GOOGLE SCHOLAR","ResearchGate","WIKIPEDIA")
-
-
-

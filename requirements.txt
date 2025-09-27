@@ -16,6 +16,8 @@ pyttsx3
 torch==2.8.0
 torchvision==0.23.0  # must match torch 2.8.0
 torchaudio==2.8.0
+SpeechRecognition==3.11.0
+
 
 
 

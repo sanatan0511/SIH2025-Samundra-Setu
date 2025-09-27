@@ -47,7 +47,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/blob/main/s1%20(1)%20(2).mp4",loop = True)
+st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/raw/main/s1%20(1)%20(2).mp4", loop=True)
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
 with tab1:
@@ -1728,6 +1728,7 @@ with tab8:
     st.write("Learn more about our mission and team....")
     st.write("We Null pointers deep passion in Science and technology drives us to explore the depths of the oceans using advanced AI and multi-modal learning techniques. Our team is dedicated to leveraging cutting-edge technologies to analyze oceanographic data, providing insights that can help in environmental conservation, resource management, and scientific discovery.")
     st.write("References: MIT OPEN EDUCATION: FOR DEEP LEARNING COURSE,ZTM LEARNING,GOOGLE AI,OPENAI,DEEPLAI","SPECIAL THANKS TO JIMMY SIR AND MENTORS OF INTERNAL SIH 2025","GOOGLE SCHOLAR","ResearchGate","WIKIPEDIA")
+
 
 
 

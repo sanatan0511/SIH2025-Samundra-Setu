@@ -557,6 +557,8 @@ with tab2:
     components.iframe(url, width=800, height=600, scrolling=True)
     st.title("INCOIS Tidal and Tsunami Map")
 
+
+
 with tab3:
     import streamlit as st
     import folium
@@ -567,93 +569,100 @@ with tab3:
 
     st.title("🌊 Live INCOIS  Map ")
 
-    @st.cache_data(ttl=1800)  # Cache for 30 minutes
-    def fetch_incois_data():
-        ENDPOINTS = {
-            "MooredBuoy": "https://incois.gov.in/OON/fetchMooredBuoyData.jsp",
-            "AWSBuoy": "https://incois.gov.in/OON/fetchAWSBuoyData.jsp",
-            "Argo": "https://incois.gov.in/OON/fetchArgoData.jsp",
-            "DriftingBuoy": "https://incois.gov.in/OON/fetchDRIFTINGBuoyData.jsp",
-            "WaveRider": "https://incois.gov.in/OON/fetchWaveRiderBuoyData.jsp",
-            "HFRadar": "https://incois.gov.in/OON/fetchHFRadarBuoyData.jsp",
-            "RamaBuoy": "https://incois.gov.in/geoserver/JointPortal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=JointPortal:Ramabuoys&outputFormat=application/json"
-        }
 
-        def fetch_json(url):
-            try:
-                r = requests.get(url, timeout=8)
-                r.raise_for_status()
-                return r.json()
-            except Exception:
-                return []
+    ENDPOINTS = {
+        "MooredBuoy": "https://incois.gov.in/OON/fetchMooredBuoyData.jsp",
+        "AWSBuoy": "https://incois.gov.in/OON/fetchAWSBuoyData.jsp",
+        "Argo": "https://incois.gov.in/OON/fetchArgoData.jsp",
+        "DriftingBuoy": "https://incois.gov.in/OON/fetchDRIFTINGBuoyData.jsp",
+        "WaveRider": "https://incois.gov.in/OON/fetchWaveRiderBuoyData.jsp",
+        "HFRadar": "https://incois.gov.in/OON/fetchHFRadarBuoyData.jsp",
+        "RamaBuoy": "https://incois.gov.in/geoserver/JointPortal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=JointPortal:Ramabuoys&outputFormat=application/json"
+    }
 
-        dfs = []
-        for name, url in ENDPOINTS.items():
-            data = fetch_json(url)
-            if isinstance(data, dict) and "features" in data:  # RamaBuoys (GeoJSON)
-                rows = []
-                for feature in data["features"]:
-                    coords = feature["geometry"]["coordinates"]
-                    props = feature["properties"]
-                    props.update({"latitude": coords[1], "longitude": coords[0]})
-                    rows.append(props)
-                df = pd.DataFrame(rows)
-            elif isinstance(data, list):
-                df = pd.DataFrame(data)
-            else:
-                df = pd.DataFrame()
-            if not df.empty:
-                df["source"] = name
-                dfs.append(df)
+    # ---------------------
+    # Fetch & Normalize
+    # ---------------------
+    def fetch_json(url):
+        try:
+            r = requests.get(url, timeout=8)
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            return []
 
-        if not dfs:
-            st.error("No data fetched from INCOIS. Try again later.")
-            return pd.DataFrame()
-
-        all_data = pd.concat(dfs, ignore_index=True)
-        return all_data
-
-    all_data = fetch_incois_data()
-
-    if not all_data.empty:
-        # Standardize lat/lon columns
-        lat_cols = ["latitude", "lat", "LATITUDE", "ARGO_POSITION_LATITUDE"]
-        lon_cols = ["longitude", "lon", "LONGITUDE", "ARGO_POSITION_LONGITUDE"]
-
-        def find_col(cols, possible):
-            for p in possible:
-                if p in cols:
-                    return p
-            return None
-
-        lat_col = find_col(all_data.columns, lat_cols)
-        lon_col = find_col(all_data.columns, lon_cols)
-        
-        if lat_col and lon_col:
-            all_data = all_data.rename(columns={lat_col: "latitude", lon_col: "longitude"})
-            all_data = all_data.dropna(subset=['latitude', 'longitude'])
-
-            # Create Folium Map
-            m = folium.Map(location=[20, 80], zoom_start=4, tiles="CartoDB positron")
-
-            for idx, row in all_data.iterrows():
-                if pd.notna(row['latitude']) and pd.notna(row['longitude']):
-                    popup_html = f"<h4>🌐 {row.get('source', 'Unknown')}</h4>"
-                    for col, val in row.items():
-                        if col not in ["latitude", "longitude", "source"] and pd.notna(val):
-                            popup_html += f"<b>{col}:</b> {val}<br>"
-
-                    folium.Marker(
-                        location=[row['latitude'], row['longitude']],
-                        popup=folium.Popup(popup_html, max_width=350),
-                        icon=folium.Icon(icon="info-sign", prefix="glyphicon", color="blue")
-                    ).add_to(m)
-
-            st.subheader("🗺 Live INCOIS Data Map")
-            st_folium(m, width=1400, height=700)
+    dfs = []
+    for name, url in ENDPOINTS.items():
+        data = fetch_json(url)
+        if isinstance(data, dict) and "features" in data:  # RamaBuoys (GeoJSON)
+            rows = []
+            for feature in data["features"]:
+                coords = feature["geometry"]["coordinates"]
+                props = feature["properties"]
+                props.update({"latitude": coords[1], "longitude": coords[0]})
+                rows.append(props)
+            df = pd.DataFrame(rows)
+        elif isinstance(data, list):
+            df = pd.DataFrame(data)
         else:
-            st.error("Could not find latitude/longitude columns in the data")
+            df = pd.DataFrame()
+        if not df.empty:
+            df["source"] = name
+            dfs.append(df)
 
+    if not dfs:
+        st.error("No data fetched from INCOIS. Try again later.")
+        st.stop()
+
+    all_data = pd.concat(dfs, ignore_index=True)
+
+    # ---------------------
+    # Standardize lat/lon columns
+    # ---------------------
+    lat_cols = ["latitude", "lat", "LATITUDE", "ARGO_POSITION_LATITUDE"]
+    lon_cols = ["longitude", "lon", "LONGITUDE", "ARGO_POSITION_LONGITUDE"]
+
+    def find_col(cols, possible):
+        for p in possible:
+            if p in cols:
+                return p
+        return None
+
+    lat_col = find_col(all_data.columns, lat_cols)
+    lon_col = find_col(all_data.columns, lon_cols)
+    if lat_col is None or lon_col is None:
+        st.error("No latitude/longitude columns found!")
+        st.stop()
+
+    all_data = all_data.rename(columns={lat_col: "latitude", lon_col: "longitude"})
+
+    # ---------------------
+    # Group by coordinates
+    # ---------------------
+    grouped = all_data.groupby(["latitude", "longitude"])
+
+    # ---------------------
+    # Create Folium Map
+    # ---------------------
+    m = folium.Map(location=[20, 80], zoom_start=4, tiles="CartoDB positron")
+
+    for (lat, lon), group in grouped:
+        popup_html = f"<h4>🌐 Profile @ ({lat:.2f}, {lon:.2f})</h4>"
+        for _, row in group.iterrows():
+            popup_html += f"<b>🔹 {row['source']}</b><br>"
+            for col, val in row.items():
+                if col not in ["latitude", "longitude", "source"] and pd.notna(val):
+                    popup_html += f"&nbsp;&nbsp;{col}: {val}<br>"
+            popup_html += "<br>"
+
+        folium.Marker(
+            location=[lat, lon],
+            popup=folium.Popup(popup_html, max_width=350),
+            icon=folium.Icon(icon="info-sign", prefix="glyphicon", color="blue")
+        ).add_to(m)
+
+    st.subheader("🗺 Click a marker to view full profile (only real INCOIS data)")
+    st_folium(m, width=1400, height=700)
 
 
 

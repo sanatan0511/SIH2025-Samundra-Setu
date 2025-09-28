@@ -1,3 +1,5 @@
+setuptools>=68.0.0
+wheel
 streamlit==1.28.0
 pandas==2.0.3
 requests==2.31.0
@@ -8,8 +10,8 @@ matplotlib==3.7.2
 numpy==1.24.3
 gtts==2.5.1
 pygame==2.5.0
-torch==2.0.1
-torchvision==0.15.2
+torch==2.2.0
+torchvision==0.17.0
 chromadb==0.4.15
 seaborn==0.12.2
 Pillow==10.0.1
@@ -21,4 +23,5 @@ openpyxl==3.1.2
 xlrd==2.0.1
 geopy==2.3.0
 urllib3==1.26.16
+
 

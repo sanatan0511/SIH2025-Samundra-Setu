@@ -397,7 +397,7 @@ with tab1:
         voice_thread.start()
 
 
-    st.title("Samundra AI 🌊 - Ocean Data Assistant")
+    st.title("Samundra AI 🌊 🐬- Ocean Data Assistant")
     st.write("Exploring oceanographic profiles with interactive mapping")
 
     if not profile_summary.empty:
@@ -1688,6 +1688,7 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 
 

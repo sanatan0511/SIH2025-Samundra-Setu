@@ -76,7 +76,11 @@ with tab1:
     import os
 
     
-    pygame.mixer.init()
+    try:
+      pygame.mixer.init()
+    except pygame.error:
+      print("⚠️ Audio device not available. Skipping pygame.mixer.init()")
+
 
     # Initialize session state
     def init_session_state():
@@ -1796,6 +1800,7 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 
 

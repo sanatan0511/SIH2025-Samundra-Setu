@@ -47,7 +47,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.video("https://drive.google.com/file/d/1vRnpGeQPIjWPilqkWjmte2JqJJdEREGB/view?usp=sharing",loop = True)
+st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/blob/main/s1%20(1)%20(2).mp4",loop = True)
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
 
@@ -1796,5 +1796,6 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 

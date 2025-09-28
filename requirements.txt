@@ -2,7 +2,6 @@ streamlit==1.28.0
 pandas==2.0.3
 requests==2.31.0
 SpeechRecognition==3.10.0
-sqlite3
 folium==0.14.0
 streamlit-folium==0.17.0
 matplotlib==3.7.2
@@ -22,3 +21,4 @@ openpyxl==3.1.2
 xlrd==2.0.1
 geopy==2.3.0
 urllib3==1.26.16
+

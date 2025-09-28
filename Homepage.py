@@ -1677,21 +1677,22 @@ with tab5:
                 """, unsafe_allow_html=True)
 
 with tab6:
-    st.header("🛰 Satellite Imagery of Rare Earth Material")
-    st.markdown("Explore satellite images related to rare earth elements and their deposits.")
-            
-    st.title("Rare Earth Elements Information")
-    st.write("""
-    Rare earth elements (REEs) are a group of 17 chemically similar elements that are critical
-    for various technologies, including smartphones, electric vehicles, and renewable energy systems.
-    They are not actually rare but are often found in low concentrations, making extraction challenging. 
-    """)
-    
-    st.image("https://www.researchgate.net/profile/Andrew-Parsons-14/publication/354466595/figure/fig1/AS:11431281174606563@1689269159340/Tectonic-map-of-the-Indian-Ocean-showing-outlines-of-Anomalies-II-III-and-VII-and-Late.png", 
-             caption="Satellite imagery of rare earth element deposits")
-    
-    st.header("Predicted Rare Earth Element Deposits")
-    st.write("For more information visit [Wikipedia](https://en.wikipedia.org/wiki/Rare_earth_element)")
+  st.header("🛰 Satellite Imagery of Rare Earth Material")
+  st.markdown("Explore satellite images related to rare earth elements and their deposits.")
+  st.title("Rare Earth Elements Information")
+  st.write("""
+  Rare earth elements (REEs) are a group of 17 chemically similar elements that are critical
+  for various technologies, including smartphones, electric vehicles, and renewable energy systems.
+  They are not actually rare but are often found in low concentrations, making extraction challenging.
+  """)
+
+  st.image(
+      "https://www.researchgate.net/profile/Andrew-Parsons-14/publication/354466595/figure/fig1/AS:11431281174606563@1689269159340/Tectonic-map-of-the-Indian-Ocean-showing-outlines-of-Anomalies-II-III-and-VII-and-Late.png",
+      caption="Satellite imagery of rare earth element deposits"
+  )
+  
+  st.header("Predicted Rare Earth Element Deposits")
+  st.write("For more information visit [Wikipedia](https://en.wikipedia.org/wiki/Rare_earth_element)")
 
 with tab7:
     st.header("📞 Contact Us")
@@ -1744,5 +1745,6 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 

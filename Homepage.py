@@ -47,18 +47,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.video("https://raw.githubusercontent.com/sanatan0511/SIH2025-Samundra-Setu/main/s1%20(1)%20(2).mp4")
-
+st.video("s1.mp4",loop = True)
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
-
 with tab1:
     
     import streamlit as st
     import pandas as pd
     import requests
+    import pyttsx3
     import speech_recognition as sr
-    from threading import Thread
+    from threading import Thread, Lock
     import sqlite3
     import time
     import folium
@@ -70,67 +69,19 @@ with tab1:
     import matplotlib.pyplot as plt
     import numpy as np
     from math import radians, sin, cos, sqrt, atan2
-    import gtts
-    from gtts import gTTS
-    import pygame
-    import tempfile
-    import os
 
-    import os
-    os.environ["SDL_AUDIODRIVER"] = "dummy" 
 
-    pygame.mixer.init()
-
-    # Initialize session state
-    def init_session_state():
-        if 'question_queue' not in st.session_state:
-            st.session_state.question_queue = queue.Queue()
-        if 'listening' not in st.session_state:
-            st.session_state.listening = True
-        if 'audio_enabled' not in st.session_state:
-            st.session_state.audio_enabled = True
-        if 'current_response' not in st.session_state:
-            st.session_state.current_response = ""
-
-    init_session_state()
-
-    
-    def speak(text):
-        
-        if not st.session_state.audio_enabled:
-            return
-            
+    if 'question_queue' not in st.session_state:
+        st.session_state.question_queue = queue.Queue()
+    if 'listening' not in st.session_state:
+        st.session_state.listening = True
+    if 'tts_engine' not in st.session_state:
         try:
-            # Create gTTS object
-            tts = gTTS(text=text, lang='en', slow=False)
-            
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
-                tts.save(tmp_file.name)
-                
-                # Play the audio
-                pygame.mixer.music.load(tmp_file.name)
-                pygame.mixer.music.play()
-                
-                # Wait for playback to complete
-                while pygame.mixer.music.get_busy():
-                    pygame.time.wait(100)
-                    
-                # Clean up
-                pygame.mixer.music.unload()
-                os.unlink(tmp_file.name)
-                
-        except Exception as e:
-            st.error(f"TTS Error: {e}")
-            # Fallback: display text instead
-            st.info(f"Audio: {text}")
+            st.session_state.tts_engine = pyttsx3.init()
+        except RuntimeError:
+            import pyttsx3.drivers
+            st.session_state.tts_engine = pyttsx3.drivers.sapi5.init()
 
-    def safe_speak(text):
-        """Safe wrapper for speak function"""
-        try:
-            speak(text)
-        except Exception as e:
-            st.warning(f"Could not play audio: {e}")
 
     MISTRAL_API_KEY = 'nZwqy7s0iceaClHw0TfpW5sCw2mPeVta'
     MISTRAL_MODEL = 'mistral-large-2411'
@@ -157,9 +108,24 @@ with tab1:
         except Exception as e:
             return f"Error contacting Mistral API: {e}"
 
-    # Cached database loading
-    @st.cache_data(ttl=3600)
-    def load_database_cached(path="incois_2025 (8).db"):
+
+    tts_lock = Lock()
+
+    def speak(text):
+        with tts_lock:
+            try:
+                engine = st.session_state.tts_engine
+                engine.say(text)
+                engine.runAndWait()
+            except RuntimeError as e:
+                st.error(f"Text-to-speech error: {e}")
+            except Exception as e:
+                st.error(f"Unexpected TTS error: {e}")
+
+
+    DB_PATH = "incois_2025 (8).db"
+
+    def load_database(path=DB_PATH):
         try:
             conn = sqlite3.connect(path)
             cursor = conn.cursor()
@@ -176,8 +142,7 @@ with tab1:
             st.error(f"Error loading database: {e}")
             return None, None
 
-    DB_PATH = "incois_2025 (8).db"
-    df, table_name = load_database_cached(DB_PATH)
+    df, table_name = load_database()
     if df is not None:
         st.write(f"Loaded {len(df)} rows from table `{table_name}`")
 
@@ -232,7 +197,9 @@ with tab1:
     else:
         profile_summary = pd.DataFrame()
 
+
     def haversine_distance(lat1, lon1, lat2, lon2):
+    
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
         
         dlat = lat2 - lat1
@@ -243,6 +210,7 @@ with tab1:
         return c * r
 
     def find_nearest_profiles(lat, lon, profiles_df, n=5):
+        
         distances = []
         for idx, row in profiles_df.iterrows():
             dist = haversine_distance(lat, lon, row['latitude'], row['longitude'])
@@ -263,6 +231,7 @@ with tab1:
         'andaman': {'lat': 11.7401, 'lon': 92.6586},
         'lakshadweep': {'lat': 10.5667, 'lon': 72.6417}
     }
+
 
     def get_region_stats(profiles_df, region_name):
         """Get statistics for a specific region"""
@@ -342,9 +311,8 @@ with tab1:
         
         return details
 
-    # Cached map creation
-    @st.cache_data(show_spinner=False)
-    def create_cached_map(profiles_df, center=[20, 80], zoom_start=3):
+
+    def create_map(profiles_df, center=[20, 80], zoom_start=3):
         m = folium.Map(location=center, zoom_start=zoom_start, tiles='OpenStreetMap')
         marker_cluster = MarkerCluster().add_to(m)
         
@@ -370,6 +338,7 @@ with tab1:
         
         return m
 
+
     def filter_profiles_by_region(profiles_df, region_name):
         region_bounds = {
             'bay of bengal': {'lat_min': 5, 'lat_max': 22, 'lon_min': 80, 'lon_max': 95},
@@ -393,66 +362,40 @@ with tab1:
         else:
             return profiles_df
 
-    # Improved speech recognition function
+
     def listen_loop():
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
         
-        # Adjust for ambient noise once
         with mic as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
         
         while st.session_state.listening:
             try:
                 with mic as source:
-                    # Listen with timeout and phrase limit
-                    audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
-                
+                    audio = recognizer.listen(source, phrase_time_limit=5)
                 text = recognizer.recognize_google(audio).lower()
-                
-                # Wake word detection
-                wake_phrases = ["hey samundra ai", "hey samundra", "samundra ai", "hello samundra"]
-                if any(phrase in text for phrase in wake_phrases):
+                if "hey samundra ai" in text or "hey samundra" in text or "samundra ai" in text:
                     st.session_state.question_queue.put("Wake word detected!")
-                    
-                    # Acknowledge wake word
-                    safe_speak("Yes, I'm listening. What's your question?")
-                    
-                    # Listen for actual question with better parameters
+                    speak("Yes, I am listening")
+                    # Listen for the actual question
                     with mic as source:
-                        audio2 = recognizer.listen(source, timeout=10, phrase_time_limit=10)
-                    
-                    question = recognizer.recognize_google(audio2)
-                    if question and len(question.strip()) > 3:  # Minimum question length
-                        st.session_state.question_queue.put(question)
-                        
-            except sr.WaitTimeoutError:
-                continue  # No speech detected, continue listening
+                        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                        audio2 = recognizer.listen(source, phrase_time_limit=10)
+                    q = recognizer.recognize_google(audio2)
+                    st.session_state.question_queue.put(q)
             except sr.UnknownValueError:
-                continue  # Speech not understood
+                continue
             except sr.RequestError as e:
                 st.error(f"Speech recognition error: {e}")
-                time.sleep(2)  # Wait before retrying
             except Exception as e:
-                st.error(f"Unexpected error: {e}")
-                time.sleep(1)
+                st.error(f"Unexpected error in voice recognition: {e}")
+            time.sleep(0.5)
 
-    # Start voice recognition thread
     if st.session_state.listening:
         voice_thread = Thread(target=listen_loop, daemon=True)
         voice_thread.start()
 
-    # UI Controls for Audio
-    st.sidebar.title("Audio Controls")
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.button("🔊 Enable Audio", key="enable_audio"):
-            st.session_state.audio_enabled = True
-            st.sidebar.success("Audio enabled")
-    with col2:
-        if st.button("🔇 Disable Audio", key="disable_audio"):
-            st.session_state.audio_enabled = False
-            st.sidebar.info("Audio disabled")
 
     st.title("Samundra AI 🌊 - Ocean Data Assistant")
     st.write("Exploring oceanographic profiles with interactive mapping")
@@ -482,10 +425,8 @@ with tab1:
         
         st.write(f"Showing {len(filtered_profiles)} profiles in {selected_region}")
         
-        # Use cached map
-        with st.spinner("Generating map..."):
-            ocean_map = create_cached_map(filtered_profiles, center=center, zoom_start=zoom)
-            st_folium(ocean_map, width=700, height=500)
+        ocean_map = create_map(filtered_profiles, center=center, zoom_start=zoom)
+        st_folium(ocean_map, width=700, height=500)
         
         st.subheader("Profile Summary")
         st.dataframe(filtered_profiles[['float_id', 'profile_date', 'latitude', 'longitude', 'measurement_count']].head(10))
@@ -512,70 +453,64 @@ with tab1:
     if user_question:
         st.session_state.question_queue.put(user_question)
 
-    # Process questions from queue
     if not st.session_state.question_queue.empty():
         current_q = st.session_state.question_queue.get()
         st.info(f"Question: {current_q}")
         
-        with st.spinner("Analyzing your question..."):
-            context = f"""
-            Oceanographic profiles data loaded from database. 
-            There are {len(profile_summary) if not profile_summary.empty else 0} unique profiles in the dataset.
-            The data includes measurements of pressure, temperature, and salinity at various depths.
-            """
+        context = f"""
+        Oceanographic profiles data loaded from database. 
+        There are {len(profile_summary) if not profile_summary.empty else 0} unique profiles in the dataset.
+        The data includes measurements of pressure, temperature, and salinity at various depths.
+        """
+        
+        location_mentioned = None
+        for location in KNOWN_LOCATIONS:
+            if location in current_q.lower():
+                location_mentioned = location
+                break
+        
+        if location_mentioned and not profile_summary.empty:
+            loc_data = KNOWN_LOCATIONS[location_mentioned]
+            nearest_profiles = find_nearest_profiles(loc_data['lat'], loc_data['lon'], profile_summary, n=3)
             
-            location_mentioned = None
-            for location in KNOWN_LOCATIONS:
-                if location in current_q.lower():
-                    location_mentioned = location
-                    break
+            context += f"\nFor {location_mentioned.title()} (Lat: {loc_data['lat']}, Lon: {loc_data['lon']}), the nearest profiles are:"
             
-            if location_mentioned and not profile_summary.empty:
-                loc_data = KNOWN_LOCATIONS[location_mentioned]
-                nearest_profiles = find_nearest_profiles(loc_data['lat'], loc_data['lon'], profile_summary, n=3)
-                
-                context += f"\nFor {location_mentioned.title()} (Lat: {loc_data['lat']}, Lon: {loc_data['lon']}), the nearest profiles are:"
-                
-                for idx, row in nearest_profiles.iterrows():
-                    context += f"\n- Float {row['float_id']} at {row['distance_km']:.1f} km away (Lat: {row['latitude']:.4f}, Lon: {row['longitude']:.4f})"
-                    context += f"\n  Profile date: {row['profile_date']}, Measurements: {row['measurement_count']}"
-                    context += f"\n  Temperature: {row['mean_temp']:.2f} °C, Salinity: {row['mean_salinity']:.2f} PSU"
-            
-            if 'salinity' in current_q.lower():
-                salinity_analysis = get_salinity_analysis(df)
-                context += f"\n{salinity_analysis}"
-            
-            region_mentioned = None
-            regions_list = ['Bay of Bengal', 'Arabian Sea', 'Indian Ocean', 'South China Sea', 'Andaman Sea', 'North Indian Ocean']
-            for region in regions_list:
-                if region.lower() in current_q.lower():
-                    region_mentioned = region
-                    break
-            
-            if region_mentioned and not profile_summary.empty:
-                region_data = filter_profiles_by_region(profile_summary, region_mentioned)
-                context += f"\nFor the {region_mentioned}, there are {len(region_data)} profiles available."
-                if not region_data.empty:
-                    context += f"\nThe profiles in {region_mentioned} range from {region_data['min_temp'].min():.2f} to {region_data['max_temp'].max():.2f} °C in temperature."
-                    context += f"\nSalinity values range from {region_data['min_salinity'].min():.2f} to {region_data['max_salinity'].max():.2f} PSU."
-                    context += f"\nPressure measurements range from {region_data['min_pressure'].min():.1f} to {region_data['max_pressure'].max():.1f} dbar."
-            
-            float_id_match = re.search(r'float\s*(\d+)', current_q.lower())
-            if float_id_match and not profile_summary.empty:
-                float_id = int(float_id_match.group(1))
-                float_data = profile_summary[profile_summary['float_id'] == float_id]
-                if not float_data.empty:
-                    context += f"\nFor float {float_id}, there are {len(float_data)} profiles available."
-                    context += f"\nThe most recent profile was on {float_data['profile_date'].max()}."
-            
-            response_text = ask_mistral(current_q, context=context)
-            st.success(response_text)
-            
-            # Store response and speak if audio enabled
-            st.session_state.current_response = response_text
-            if st.session_state.audio_enabled:
-                tts_thread = Thread(target=safe_speak, args=(response_text,), daemon=True)
-                tts_thread.start()
+            for idx, row in nearest_profiles.iterrows():
+                context += f"\n- Float {row['float_id']} at {row['distance_km']:.1f} km away (Lat: {row['latitude']:.4f}, Lon: {row['longitude']:.4f})"
+                context += f"\n  Profile date: {row['profile_date']}, Measurements: {row['measurement_count']}"
+                context += f"\n  Temperature: {row['mean_temp']:.2f} °C, Salinity: {row['mean_salinity']:.2f} PSU"
+        
+        if 'salinity' in current_q.lower():
+            salinity_analysis = get_salinity_analysis(df)
+            context += f"\n{salinity_analysis}"
+        
+        region_mentioned = None
+        for region in regions[1:]:  # Skip 'All Regions'
+            if region.lower() in current_q.lower():
+                region_mentioned = region
+                break
+        
+        if region_mentioned and not profile_summary.empty:
+            region_data = filter_profiles_by_region(profile_summary, region_mentioned)
+            context += f"\nFor the {region_mentioned}, there are {len(region_data)} profiles available."
+            if not region_data.empty:
+                context += f"\nThe profiles in {region_mentioned} range from {region_data['min_temp'].min():.2f} to {region_data['max_temp'].max():.2f} °C in temperature."
+                context += f"\nSalinity values range from {region_data['min_salinity'].min():.2f} to {region_data['max_salinity'].max():.2f} PSU."
+                context += f"\nPressure measurements range from {region_data['min_pressure'].min():.1f} to {region_data['max_pressure'].max():.1f} dbar."
+        
+        float_id_match = re.search(r'float\s*(\d+)', current_q.lower())
+        if float_id_match and not profile_summary.empty:
+            float_id = int(float_id_match.group(1))
+            float_data = profile_summary[profile_summary['float_id'] == float_id]
+            if not float_data.empty:
+                context += f"\nFor float {float_id}, there are {len(float_data)} profiles available."
+                context += f"\nThe most recent profile was on {float_data['profile_date'].max()}."
+        
+        response_text = ask_mistral(current_q, context=context)
+        st.success(response_text)
+        
+        tts_thread = Thread(target=speak, args=(response_text,), daemon=True)
+        tts_thread.start()
 
     st.subheader("Try asking:")
     st.markdown("""
@@ -591,38 +526,48 @@ with tab1:
     - Ocean data near Kolkata
     """)
 
+
     st.markdown("---")
     st.markdown("Samundra AI - Oceanographic Data Analysis Assistant | Powered by Mistral AI")
+
 
     if st.button("Stop Voice Recognition"):
         st.session_state.listening = False
         st.write("Voice recognition stopped")
-        
-    if st.button("Start Voice Recognition"):
-        st.session_state.listening = True
-        voice_thread = Thread(target=listen_loop, daemon=True)
-        voice_thread.start()
-        st.write("Voice recognition started")
 
-    # Visualization
     if not profile_summary.empty:
         sizes = profile_summary.groupby('float_id')['measurement_count'].sum()
         labels = sizes.index.astype(str)
         explode = [0.05] * len(labels)  
-        fig1, ax1 = plt.subplots(figsize=(8, 8))
+        fig1, ax1 = plt.subplots(figsize=(1, 1))  
+        fig1, ax1 = plt.subplots()
         ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
                 shadow=True, startangle=90)
         ax1.axis('equal') 
         st.pyplot(fig1)
 
+
+
+        
+        
 with tab2:
     import streamlit as st
     import streamlit.components.v1 as components
 
+    
     st.title("Ocean-Current")
+
+    
     url = "https://earth.nullschool.net/#current/wind/surface/level/orthographic=79.62,21.06,1626/loc=78.797,22.719"
+
+    
     components.iframe(url, width=800, height=600, scrolling=True)
+
     st.title("INCOIS Tidal and Tsunami Map")
+
+
+
+
 
 with tab3:
     import streamlit as st
@@ -634,126 +579,138 @@ with tab3:
 
     st.title("🌊 Live INCOIS  Map ")
 
-    @st.cache_data(ttl=1800)  # Cache for 30 minutes
-    def fetch_incois_data():
-        ENDPOINTS = {
-            "MooredBuoy": "https://incois.gov.in/OON/fetchMooredBuoyData.jsp",
-            "AWSBuoy": "https://incois.gov.in/OON/fetchAWSBuoyData.jsp",
-            "Argo": "https://incois.gov.in/OON/fetchArgoData.jsp",
-            "DriftingBuoy": "https://incois.gov.in/OON/fetchDRIFTINGBuoyData.jsp",
-            "WaveRider": "https://incois.gov.in/OON/fetchWaveRiderBuoyData.jsp",
-            "HFRadar": "https://incois.gov.in/OON/fetchHFRadarBuoyData.jsp",
-            "RamaBuoy": "https://incois.gov.in/geoserver/JointPortal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=JointPortal:Ramabuoys&outputFormat=application/json"
-        }
 
-        def fetch_json(url):
-            try:
-                r = requests.get(url, timeout=8)
-                r.raise_for_status()
-                return r.json()
-            except Exception:
-                return []
+    ENDPOINTS = {
+        "MooredBuoy": "https://incois.gov.in/OON/fetchMooredBuoyData.jsp",
+        "AWSBuoy": "https://incois.gov.in/OON/fetchAWSBuoyData.jsp",
+        "Argo": "https://incois.gov.in/OON/fetchArgoData.jsp",
+        "DriftingBuoy": "https://incois.gov.in/OON/fetchDRIFTINGBuoyData.jsp",
+        "WaveRider": "https://incois.gov.in/OON/fetchWaveRiderBuoyData.jsp",
+        "HFRadar": "https://incois.gov.in/OON/fetchHFRadarBuoyData.jsp",
+        "RamaBuoy": "https://incois.gov.in/geoserver/JointPortal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=JointPortal:Ramabuoys&outputFormat=application/json"
+    }
 
-        dfs = []
-        for name, url in ENDPOINTS.items():
-            data = fetch_json(url)
-            if isinstance(data, dict) and "features" in data:  # RamaBuoys (GeoJSON)
-                rows = []
-                for feature in data["features"]:
-                    coords = feature["geometry"]["coordinates"]
-                    props = feature["properties"]
-                    props.update({"latitude": coords[1], "longitude": coords[0]})
-                    rows.append(props)
-                df = pd.DataFrame(rows)
-            elif isinstance(data, list):
-                df = pd.DataFrame(data)
-            else:
-                df = pd.DataFrame()
-            if not df.empty:
-                df["source"] = name
-                dfs.append(df)
+    # ---------------------
+    # Fetch & Normalize
+    # ---------------------
+    def fetch_json(url):
+        try:
+            r = requests.get(url, timeout=8)
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            return []
 
-        if not dfs:
-            st.error("No data fetched from INCOIS. Try again later.")
-            return pd.DataFrame()
-
-        all_data = pd.concat(dfs, ignore_index=True)
-        return all_data
-
-    all_data = fetch_incois_data()
-
-    if not all_data.empty:
-        # Standardize lat/lon columns
-        lat_cols = ["latitude", "lat", "LATITUDE", "ARGO_POSITION_LATITUDE"]
-        lon_cols = ["longitude", "lon", "LONGITUDE", "ARGO_POSITION_LONGITUDE"]
-
-        def find_col(cols, possible):
-            for p in possible:
-                if p in cols:
-                    return p
-            return None
-
-        lat_col = find_col(all_data.columns, lat_cols)
-        lon_col = find_col(all_data.columns, lon_cols)
-        
-        if lat_col and lon_col:
-            all_data = all_data.rename(columns={lat_col: "latitude", lon_col: "longitude"})
-            all_data = all_data.dropna(subset=['latitude', 'longitude'])
-
-            # Create Folium Map
-            m = folium.Map(location=[20, 80], zoom_start=4, tiles="CartoDB positron")
-
-            for idx, row in all_data.iterrows():
-                if pd.notna(row['latitude']) and pd.notna(row['longitude']):
-                    popup_html = f"<h4>🌐 {row.get('source', 'Unknown')}</h4>"
-                    for col, val in row.items():
-                        if col not in ["latitude", "longitude", "source"] and pd.notna(val):
-                            popup_html += f"<b>{col}:</b> {val}<br>"
-
-                    folium.Marker(
-                        location=[row['latitude'], row['longitude']],
-                        popup=folium.Popup(popup_html, max_width=350),
-                        icon=folium.Icon(icon="info-sign", prefix="glyphicon", color="blue")
-                    ).add_to(m)
-
-            st.subheader("🗺 Live INCOIS Data Map")
-            st_folium(m, width=1400, height=700)
+    dfs = []
+    for name, url in ENDPOINTS.items():
+        data = fetch_json(url)
+        if isinstance(data, dict) and "features" in data:  # RamaBuoys (GeoJSON)
+            rows = []
+            for feature in data["features"]:
+                coords = feature["geometry"]["coordinates"]
+                props = feature["properties"]
+                props.update({"latitude": coords[1], "longitude": coords[0]})
+                rows.append(props)
+            df = pd.DataFrame(rows)
+        elif isinstance(data, list):
+            df = pd.DataFrame(data)
         else:
-            st.error("Could not find latitude/longitude columns in the data")
+            df = pd.DataFrame()
+        if not df.empty:
+            df["source"] = name
+            dfs.append(df)
+
+    if not dfs:
+        st.error("No data fetched from INCOIS. Try again later.")
+        st.stop()
+
+    all_data = pd.concat(dfs, ignore_index=True)
+
+    # ---------------------
+    # Standardize lat/lon columns
+    # ---------------------
+    lat_cols = ["latitude", "lat", "LATITUDE", "ARGO_POSITION_LATITUDE"]
+    lon_cols = ["longitude", "lon", "LONGITUDE", "ARGO_POSITION_LONGITUDE"]
+
+    def find_col(cols, possible):
+        for p in possible:
+            if p in cols:
+                return p
+        return None
+
+    lat_col = find_col(all_data.columns, lat_cols)
+    lon_col = find_col(all_data.columns, lon_cols)
+    if lat_col is None or lon_col is None:
+        st.error("No latitude/longitude columns found!")
+        st.stop()
+
+    all_data = all_data.rename(columns={lat_col: "latitude", lon_col: "longitude"})
+
+    # ---------------------
+    # Group by coordinates
+    # ---------------------
+    grouped = all_data.groupby(["latitude", "longitude"])
+
+    # ---------------------
+    # Create Folium Map
+    # ---------------------
+    m = folium.Map(location=[20, 80], zoom_start=4, tiles="CartoDB positron")
+
+    for (lat, lon), group in grouped:
+        popup_html = f"<h4>🌐 Profile @ ({lat:.2f}, {lon:.2f})</h4>"
+        for _, row in group.iterrows():
+            popup_html += f"<b>🔹 {row['source']}</b><br>"
+            for col, val in row.items():
+                if col not in ["latitude", "longitude", "source"] and pd.notna(val):
+                    popup_html += f"&nbsp;&nbsp;{col}: {val}<br>"
+            popup_html += "<br>"
+
+        folium.Marker(
+            location=[lat, lon],
+            popup=folium.Popup(popup_html, max_width=350),
+            icon=folium.Icon(icon="info-sign", prefix="glyphicon", color="blue")
+        ).add_to(m)
+
+    st.subheader("🗺 Click a marker to view full profile (only real INCOIS data)")
+    st_folium(m, width=1400, height=700)
+
+
+
+
 
 with tab4: 
     import streamlit as st
-    import sqlite3
-    import pandas as pd
-    import torch
-    import torch.nn as nn
-    from torch.utils.data import Dataset, DataLoader
-    import torchvision
-    import torchvision.transforms as transforms
-    import torchvision.models as models
-    from torchvision.models import ResNet50_Weights
-    import chromadb
-    from chromadb.config import Settings
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from datetime import datetime
-    import numpy as np
-    import re
-    import os
-    import warnings
-    from typing import List, Tuple, Dict, Any, Optional
-    import hashlib
-    import pickle
-    import gc
-    from pathlib import Path
-    import requests
-    from PIL import Image
-    import io
+import sqlite3
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+import torchvision
+import torchvision.transforms as transforms
+import torchvision.models as models
+from torchvision.models import ResNet50_Weights
+import chromadb
+from chromadb.config import Settings
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import numpy as np
+import re
+import os
+import warnings
+from typing import List, Tuple, Dict, Any, Optional
+import hashlib
+import pickle
+import gc
+from pathlib import Path
+import requests
+from PIL import Image
+import io
 
-    # Suppress warnings
-    warnings.filterwarnings('ignore')
+# Suppress warnings
+warnings.filterwarnings('ignore')
 
-    # Set page config for better performance
+# Set page config for better performance
 
 
 # Configuration class for easy management
@@ -1672,6 +1629,9 @@ if __name__ == "__main__":
     st.sidebar.markdown("---")
     st.sidebar.write(f"⏱️ Load time: {time.time() - start_time:.2f}s")
 
+
+
+
 with tab5:
     import streamlit as st
     import requests
@@ -1679,19 +1639,11 @@ with tab5:
 
     st.header("🚨 Alerts")
 
-    @st.cache_data(ttl=600)  # Cache for 10 minutes
-    def fetch_alerts():
-        url = "https://sarat.incois.gov.in/incoismobileappdata/rest/incois/hwassalatestdata"
-        try:
-            response = requests.get(url, timeout=10)
-            data = response.json()
-            return data
-        except Exception as e:
-            st.error(f"Error fetching alerts: {e}")
-            return {}
+    url = "https://sarat.incois.gov.in/incoismobileappdata/rest/incois/hwassalatestdata"
+    response = requests.get(url)
+    data = response.json()
 
-    data = fetch_alerts()
-    hwa_data = json.loads(data.get("HWAJson", "[]")) if data else []
+    hwa_data = json.loads(data.get("HWAJson", "[]"))
 
     if hwa_data:
         st.subheader("🌊 High Wave Alerts")
@@ -1711,7 +1663,7 @@ with tab5:
             </div>
             """, unsafe_allow_html=True)
 
-        ssa_data = json.loads(data.get("SSAJson", "[]")) if data else []
+        ssa_data = json.loads(data.get("SSAJson", "[]"))
 
         if ssa_data:
             st.subheader("🌊 Swell Surge Alerts")
@@ -1731,74 +1683,47 @@ with tab5:
                 </div>
                 """, unsafe_allow_html=True)
 
+
+
 with tab6:
-    st.header("🛰 Satellite Imagery of Rare Earth Material")
+    st.header("🛰 Satellite Imagenary of Rare Earth Material")
     st.markdown("Explore satellite images related to rare earth elements and their deposits.")
             
+
     st.title("Rare Earth Elements Information")
     st.write("""
     Rare earth elements (REEs) are a group of 17 chemically similar elements that are critical
     for various technologies, including smartphones, electric vehicles, and renewable energy systems.
     They are not actually rare but are often found in low concentrations, making extraction challenging. 
-    """)
-    
-    st.image("https://www.researchgate.net/profile/Andrew-Parsons-14/publication/354466595/figure/fig1/AS:11431281174606563@1689269159340/Tectonic-map-of-the-Indian-Ocean-showing-outlines-of-Anomalies-II-III-and-VII-and-Late.png", 
-             caption="Satellite imagery of rare earth element deposits")
-    
-    st.header("Predicted Rare Earth Element Deposits")
-    st.write("For more information visit [Wikipedia](https://en.wikipedia.org/wiki/Rare_earth_element)")
+            """)
+    st.image("https://www.researchgate.net/profile/Andrew-Parsons-14/publication/354466595/figure/fig1/AS:11431281174606563@1689269159340/Tectonic-map-of-the-Indian-Ocean-showing-outlines-of-Anomalies-II-III-and-VII-and-Late.png").width = 50
+    st.header("Predicted rare earth element deposits")
+    st.header("Predictions of Rare Earth Element Deposits")
+    st.write("for more information visit [wikipedia](https://en.wikipedia.org/wiki/Rare_earth_element")
+
+
+
 
 with tab7:
-    st.header("📞 Contact Us")
-    
-    with st.form("contact_form"):
-        name = st.text_input("Enter your name:")
+    name = st.text_input("Enter your name:")
+    if name:
         email = st.text_input("Enter your email:")
-        message = st.text_area("Enter your message:")
-        
-        submitted = st.form_submit_button("Submit")
-        
-        if submitted:
-            if name and email and message:
-                if "@" in email and "." in email:
+        if email.strip() and "@" in email and "." in email:
+            message = st.text_area("Enter your message:")
+            if message:
+                if st.button("Submit"):
                     st.success("Thank you for contacting us! We will get back to you soon.")
-                else:
-                    st.error("Please enter a valid email address.")
-            else:
-                st.error("Please fill in all fields.")
 
+                
 with tab8:
-    st.header("ℹ️ About Us")
-    st.write("""
-    **Made with ❤️ by NullPointer's - Made for Development purposes India**
-    
-    **Contributing Team:**
-    - Sanvi Kumari
-    - Debashitha Dash  
-    - Gourav Dash
-    - Subh Dixit
-    - Anurag Yadav
-    - Sanatan Singh
-    
-    We Null Pointers have a deep passion in Science and technology that drives us to explore 
-    the depths of the oceans using advanced AI and multi-modal learning techniques. 
-    Our team is dedicated to leveraging cutting-edge technologies to analyze oceanographic data, 
-    providing insights that can help in environmental conservation, resource management, 
-    and scientific discovery.
-    """)
-    
-    st.subheader("References & Acknowledgments")
-    st.write("""
-    - MIT OPEN EDUCATION: FOR DEEP LEARNING COURSE
-    - ZTM LEARNING
-    - GOOGLE AI
-    - OPENAI
-    - DEEPLAI
-    - SPECIAL THANKS TO JIMMY SIR AND MENTORS OF INTERNAL SIH 2025
-    - GOOGLE SCHOLAR
-    - ResearchGate
-    - WIKIPEDIA
-    """)
-
-
-
+    st.header("ℹ️ About Us"
+              "Made with ❤️ by NullPointer's Made for Made in for Development purposes India:)"
+              "Contributing person:- 1. Sanvi Kumari"
+              "2.Debashitha Dash"
+              "3.Gourav Dash"
+              "4. Subh Dixit"
+              "5. Anurag Yadav"
+              "6. Sanatan Singh")
+    st.write("Learn more about our mission and team....")
+    st.write("We Null pointers deep passion in Science and technology drives us to explore the depths of the oceans using advanced AI and multi-modal learning techniques. Our team is dedicated to leveraging cutting-edge technologies to analyze oceanographic data, providing insights that can help in environmental conservation, resource management, and scientific discovery.")
+    st.write("References: MIT OPEN EDUCATION: FOR DEEP LEARNING COURSE,ZTM LEARNING,GOOGLE AI,OPENAI,DEEPLAI","SPECIAL THANKS TO JIMMY SIR AND MENTORS OF INTERNAL SIH 2025","GOOGLE SCHOLAR","ResearchGate","WIKIPEDIA")

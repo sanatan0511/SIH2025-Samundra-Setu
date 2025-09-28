@@ -47,7 +47,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.video("s1.mp4",loop = True)
+st.video("https://github.com/sanatan0511/SIH2025-Samundra-Setu/blob/main/s1%20(1)%20(2).mp4",loop = True)
 
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["Samundra AI", "Ocean-Current", "Live INCOIS data","New LLM MODEL","Alerts","Satellite Imagery and isro information","Contact Us","About Us"])
 
@@ -75,7 +75,7 @@ with tab1:
     import tempfile
     import os
 
-    # Initialize pygame mixer for audio playback
+    
     pygame.mixer.init()
 
     # Initialize session state
@@ -91,39 +91,39 @@ with tab1:
 
     init_session_state()
 
-    # Improved TTS function with gTTS
+    
     def speak(text):
-        """Improved TTS using gTTS"""
+        
         if not st.session_state.audio_enabled:
             return
             
         try:
-            # Create gTTS object
+            
             tts = gTTS(text=text, lang='en', slow=False)
             
-            # Save to temporary file
+            
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
                 tts.save(tmp_file.name)
                 
-                # Play the audio
+                
                 pygame.mixer.music.load(tmp_file.name)
                 pygame.mixer.music.play()
                 
-                # Wait for playback to complete
+                
                 while pygame.mixer.music.get_busy():
                     pygame.time.wait(100)
                     
-                # Clean up
+                
                 pygame.mixer.music.unload()
                 os.unlink(tmp_file.name)
                 
         except Exception as e:
             st.error(f"TTS Error: {e}")
-            # Fallback: display text instead
+            
             st.info(f"Audio: {text}")
 
     def safe_speak(text):
-        """Safe wrapper for speak function"""
+        
         try:
             speak(text)
         except Exception as e:
@@ -154,7 +154,7 @@ with tab1:
         except Exception as e:
             return f"Error contacting Mistral API: {e}"
 
-    # Cached database loading
+    
     @st.cache_data(ttl=3600)
     def load_database_cached(path="incois_2025 (8).db"):
         try:
@@ -1796,3 +1796,4 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+

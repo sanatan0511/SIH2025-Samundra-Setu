@@ -1,3 +1,4 @@
+rich>=10.14.0,<14
 streamlit==1.37.1
 pandas>=2.1.0
 numpy>=1.26.0
@@ -18,4 +19,5 @@ requests>=2.31.0
 chromadb==0.4.15
 seaborn==0.12.2
 pyaudio==0.2.13
+
 

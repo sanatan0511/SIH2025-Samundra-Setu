@@ -76,7 +76,9 @@ with tab1:
     import tempfile
     import os
 
-    # Initialize pygame mixer for audio playback
+    import os
+    os.environ["SDL_AUDIODRIVER"] = "dummy" 
+
     pygame.mixer.init()
 
     # Initialize session state
@@ -1797,5 +1799,6 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 

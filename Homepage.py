@@ -76,11 +76,12 @@ with tab1:
     if 'listening' not in st.session_state:
         st.session_state.listening = True
     if 'tts_engine' not in st.session_state:
-        try:
-            st.session_state.tts_engine = pyttsx3.init()
-        except RuntimeError:
-            import pyttsx3.drivers
-            st.session_state.tts_engine = pyttsx3.drivers.sapi5.init()
+      try:
+        import pyttsx3
+        st.session_state.tts_engine = pyttsx3.init()
+      except Exception:
+        st.warning("TTS engine not available in this environment.")
+        st.session_state.tts_engine = None
 
 
     MISTRAL_API_KEY = 'nZwqy7s0iceaClHw0TfpW5sCw2mPeVta'
@@ -545,4 +546,5 @@ with tab1:
                 shadow=True, startangle=90)
         ax1.axis('equal') 
         st.pyplot(fig1)
+
 

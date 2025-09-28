@@ -293,7 +293,6 @@ with tab1:
         if profile_date:
             profile_data = df[(df['float_id'] == float_id) & (df['profile_date'] == profile_date)]
         else:
-            # Get the most recent profile for this float
             recent_date = df[df['float_id'] == float_id]['profile_date'].max()
             profile_data = df[(df['float_id'] == float_id) & (df['profile_date'] == recent_date)]
         
@@ -580,9 +579,7 @@ with tab3:
         "RamaBuoy": "https://incois.gov.in/geoserver/JointPortal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=JointPortal:Ramabuoys&outputFormat=application/json"
     }
 
-    # ---------------------
-    # Fetch & Normalize
-    # ---------------------
+  
     def fetch_json(url):
         try:
             r = requests.get(url, timeout=8)
@@ -594,7 +591,7 @@ with tab3:
     dfs = []
     for name, url in ENDPOINTS.items():
         data = fetch_json(url)
-        if isinstance(data, dict) and "features" in data:  # RamaBuoys (GeoJSON)
+        if isinstance(data, dict) and "features" in data:  
             rows = []
             for feature in data["features"]:
                 coords = feature["geometry"]["coordinates"]
@@ -616,9 +613,7 @@ with tab3:
 
     all_data = pd.concat(dfs, ignore_index=True)
 
-    # ---------------------
-    # Standardize lat/lon columns
-    # ---------------------
+   
     lat_cols = ["latitude", "lat", "LATITUDE", "ARGO_POSITION_LATITUDE"]
     lon_cols = ["longitude", "lon", "LONGITUDE", "ARGO_POSITION_LONGITUDE"]
 
@@ -636,14 +631,10 @@ with tab3:
 
     all_data = all_data.rename(columns={lat_col: "latitude", lon_col: "longitude"})
 
-    # ---------------------
-    # Group by coordinates
-    # ---------------------
+  
     grouped = all_data.groupby(["latitude", "longitude"])
 
-    # ---------------------
-    # Create Folium Map
-    # ---------------------
+  
     m = folium.Map(location=[20, 80], zoom_start=4, tiles="CartoDB positron")
 
     for (lat, lon), group in grouped:
@@ -695,13 +686,11 @@ with tab4:
     from PIL import Image
     import io
 
-    # Suppress warnings
+    
     warnings.filterwarnings('ignore')
 
-    # Set page config for better performance
 
 
-# Configuration class for easy management
 class Config:
     CACHE_DIR = Path("./cache")
     MODEL_DIR = Path("./models")
@@ -718,7 +707,6 @@ class Config:
     TRANSFER_LEARNING = True
     USE_PRETRAINED_VISION = True
 
-# Create directories
 Config.CACHE_DIR.mkdir(exist_ok=True)
 Config.MODEL_DIR.mkdir(exist_ok=True)
 Config.CHROMA_DIR.mkdir(exist_ok=True)
@@ -729,22 +717,17 @@ class MultiModalOceanLLM(nn.Module):
     def __init__(self, vocab_size, embedding_dim=256, hidden_dim=512, num_layers=3, num_heads=8):
         super(MultiModalOceanLLM, self).__init__()
         
-        # Text components
         self.text_embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
         self.pos_encoding = nn.Parameter(torch.zeros(1, Config.MAX_SEQ_LENGTH, embedding_dim))
         
-        # Vision encoder (transfer learning)
         if Config.USE_PRETRAINED_VISION:
             self.vision_encoder = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
-            # Remove the final classification layer
             self.vision_encoder = nn.Sequential(*list(self.vision_encoder.children())[:-2])
-            # Adaptive pooling to get fixed size output
             self.vision_pool = nn.AdaptiveAvgPool2d((1, 1))
             self.vision_projection = nn.Linear(2048, embedding_dim)  # ResNet50 feature size
         else:
             self.vision_encoder = None
         
-        # Multi-modal transformer
         encoder_layers = nn.TransformerEncoderLayer(
             d_model=embedding_dim,
             nhead=num_heads,
@@ -754,7 +737,6 @@ class MultiModalOceanLLM(nn.Module):
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers)
         
-        # Multi-task heads
         self.text_decoder = nn.Linear(embedding_dim, vocab_size)
         self.regression_head = nn.Linear(embedding_dim, 3)  # For temp, salinity, pressure
         self.classification_head = nn.Linear(embedding_dim, 10)  # For ocean zones classification
@@ -765,13 +747,11 @@ class MultiModalOceanLLM(nn.Module):
     def forward(self, text_tokens=None, images=None, mask=None):
         outputs = {}
         
-        # Process text if available
         if text_tokens is not None:
             text_emb = self.text_embedding(text_tokens) + self.pos_encoding[:, :text_tokens.size(1), :]
             text_emb = self.dropout(text_emb)
             outputs['text_embeddings'] = text_emb
         
-        # Process images if available
         if images is not None and self.vision_encoder is not None:
             vision_features = self.vision_encoder(images)
             vision_features = self.vision_pool(vision_features)
@@ -780,9 +760,7 @@ class MultiModalOceanLLM(nn.Module):
             vision_emb = vision_emb.unsqueeze(1)  # Add sequence dimension
             outputs['vision_embeddings'] = vision_emb
         
-        # Fuse modalities
         if 'text_embeddings' in outputs and 'vision_embeddings' in outputs:
-            # Concatenate text and vision embeddings
             fused_emb = torch.cat([outputs['text_embeddings'], outputs['vision_embeddings']], dim=1)
         elif 'text_embeddings' in outputs:
             fused_emb = outputs['text_embeddings']
@@ -791,9 +769,7 @@ class MultiModalOceanLLM(nn.Module):
         else:
             raise ValueError("No input provided")
         
-        # Transformer encoding
         if mask is not None:
-            # Extend mask for vision tokens if present
             if 'vision_embeddings' in outputs:
                 vision_mask = torch.zeros(mask.size(0), 1, device=mask.device).bool()
                 mask = torch.cat([mask, vision_mask], dim=1)
@@ -801,11 +777,9 @@ class MultiModalOceanLLM(nn.Module):
         encoded = self.transformer_encoder(fused_emb, src_key_padding_mask=mask)
         encoded = self.layer_norm(encoded)
         
-        # Multi-task outputs
         if text_tokens is not None:
             outputs['text_logits'] = self.text_decoder(encoded)
         
-        # Regression output (using [CLS] token or mean pooling)
         if 'vision_embeddings' in outputs:
             cls_token = encoded[:, 0] if text_tokens is None else encoded.mean(dim=1)
             outputs['regression'] = self.regression_head(cls_token)
@@ -820,13 +794,11 @@ class TransferLearningManager:
     def load_pretrained_language_model():
         """Load a pre-trained language model for transfer learning"""
         try:
-            # Try to use a small pre-trained transformer
             from transformers import AutoModel, AutoTokenizer
             model_name = "microsoft/DialoGPT-small"
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             model = AutoModel.from_pretrained(model_name)
             
-            # Add padding token if not exists
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
                 
@@ -841,10 +813,8 @@ class TransferLearningManager:
         if pretrained_model is None:
             return custom_model
         
-        # Transfer embedding weights if dimensions match
         pretrained_emb_dim = pretrained_model.config.hidden_size
         if pretrained_emb_dim == embedding_dim:
-            # This is a simplified transfer - in practice you'd need more sophisticated mapping
             st.info("🚀 Using pre-trained model features")
         
         return custom_model
@@ -871,7 +841,6 @@ class OceanDataset(Dataset):
         
         sample = {'tokens': tokens}
         
-        # Add image if available
         if idx < len(self.images):
             try:
                 image = self.images[idx]
@@ -880,7 +849,6 @@ class OceanDataset(Dataset):
                 elif isinstance(image, Image.Image):
                     pass
                 else:
-                    # Create dummy ocean-colored image
                     image = Image.new('RGB', (224, 224), color=(0, 105, 148))
                 
                 if self.transform:
@@ -888,11 +856,9 @@ class OceanDataset(Dataset):
                 sample['image'] = image
             except Exception as e:
                 st.warning(f"Image loading failed: {e}")
-                # Create dummy image
                 image = Image.new('RGB', (224, 224), color=(0, 105, 148))
                 sample['image'] = self.transform(image)
         
-        # Add targets if available
         if self.targets is not None and idx < len(self.targets):
             sample['targets'] = torch.tensor(self.targets[idx], dtype=torch.float)
         
@@ -913,14 +879,12 @@ class FastOceanDataProcessor:
             for word in re.findall(r'\w+', text.lower()):
                 word_freq[word] = word_freq.get(word, 0) + 1
         
-        # Filter words by frequency
         for word, freq in word_freq.items():
             if freq >= min_freq:
                 self.vocab[word] = self.vocab_size
                 self.reverse_vocab[self.vocab_size] = word
                 self.vocab_size += 1
         
-        # Cache for faster processing
         self._cache_vocab()
     
     def _cache_vocab(self):
@@ -954,10 +918,8 @@ class FastOceanDataProcessor:
         tokens = [self.vocab.get(word, 1) for word in words]
         tokens = tokens[:Config.MAX_SEQ_LENGTH-1]  # Leave room for CLS
         
-        # Add CLS token at beginning
-        tokens = [2] + tokens  # 2 is <CLS>
+        tokens = [2] + tokens  
         
-        # Pad/truncate
         if len(tokens) < Config.MAX_SEQ_LENGTH:
             tokens = tokens + [0] * (Config.MAX_SEQ_LENGTH - len(tokens))
         else:
@@ -1037,10 +999,8 @@ class OceanImageManager:
             except Exception as e:
                 st.warning(f"Could not download image {url}: {e}")
         
-        # Create dummy images if download fails
         if not images:
             for i in range(2):
-                # Create ocean-colored images
                 image = Image.new('RGB', (224, 224), color=(0, 105, 148))
                 image_path = Config.IMAGE_DIR / f"ocean_dummy_{i}.jpg"
                 image.save(image_path)
@@ -1108,14 +1068,12 @@ def prepare_optimized_training_data(argo_data, incois_data, max_samples=1000):
     texts = []
     targets = []
     
-    # Sample data for faster processing
     argo_sample = argo_data.sample(min(len(argo_data), max_samples//2))
     incois_sample = incois_data.sample(min(len(incois_data), max_samples//2))
     
     for _, row in argo_sample.iterrows():
         text = f"Argo float {row.get('float_id', 'N/A')} at lat:{row.get('latitude', 0):.2f} lon:{row.get('longitude', 0):.2f}"
         texts.append(text)
-        # Create dummy targets: [temperature, salinity, pressure]
         targets.append([row.get('temperature', 15.0), row.get('salinity', 35.0), row.get('pressure_dbar', 100.0)])
     
     for _, row in incois_sample.iterrows():
@@ -1143,7 +1101,6 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
     else:
         model = MultiModalOceanLLM(processor.vocab_size)
     
-    # Multi-task loss
     criterion = {
         'text': nn.CrossEntropyLoss(ignore_index=0),
         'regression': nn.MSELoss(),
@@ -1152,7 +1109,6 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=0.01)
     
-    # Create dataset
     dataset = OceanDataset(texts, images, targets, processor)
     dataloader = DataLoader(dataset, batch_size=Config.BATCH_SIZE, shuffle=True)
     
@@ -1172,13 +1128,10 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
             # Create mask for padding
             mask = (tokens == 0)
             
-            # Forward pass
             outputs = model(text_tokens=tokens, images=images, mask=mask)
             
-            # Calculate multi-task loss
             loss = 0
             
-            # Text generation loss
             if 'text_logits' in outputs:
                 text_loss = criterion['text'](
                     outputs['text_logits'][:, :-1].reshape(-1, outputs['text_logits'].size(-1)),
@@ -1186,7 +1139,6 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
                 )
                 loss += text_loss
             
-            # Regression loss
             if 'regression' in outputs and targets is not None:
                 reg_loss = criterion['regression'](outputs['regression'], targets)
                 loss += reg_loss * 0.1  # Weight regression lower
@@ -1196,14 +1148,12 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
             optimizer.step()
             total_loss += loss.item()
             
-            # Update progress
             progress = (epoch * len(dataloader) + batch_idx) / (Config.EPOCHS * len(dataloader))
             progress_bar.progress(progress)
             status_text.text(f"Epoch {epoch+1}/{Config.EPOCHS}, Batch {batch_idx+1}/{len(dataloader)}, Loss: {loss.item():.4f}")
         
         loss_history.append(total_loss / len(dataloader))
     
-    # Save model and loss history
     torch.save(model.state_dict(), model_path)
     with open(Config.MODEL_DIR / "loss_history.pkl", 'wb') as f:
         pickle.dump(loss_history, f)
@@ -1211,7 +1161,6 @@ def train_multi_modal_model(processor, texts, targets, images=None, use_cached=T
     status_text.text("✅ Multi-modal training completed!")
     progress_bar.empty()
     
-    # Plot loss history
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(loss_history, 'b-', linewidth=2)
     ax.set_xlabel('Epoch')
@@ -1230,7 +1179,6 @@ def generate_multi_modal_response(model, processor, prompt, image=None, max_leng
     if tokens.dim() == 1:
         tokens = tokens.unsqueeze(0)
     
-    # Process image if available
     image_tensor = None
     if image is not None:
         transform = transforms.Compose([
@@ -1262,18 +1210,16 @@ def generate_multi_modal_response(model, processor, prompt, image=None, max_leng
                     
                 tokens = torch.cat([tokens, next_token], dim=1)
     
-    # Convert tokens to text
     response_tokens = tokens[0].tolist()
     response_words = []
     for token in response_tokens:
-        if token not in [0, 1, 2]:  # Skip PAD, UNK, CLS
+        if token not in [0, 1, 2]:  
             word = processor.reverse_vocab.get(token, '')
             if word and word not in ['<PAD>', '<UNK>', '<CLS>']:
                 response_words.append(word)
     
     response = ' '.join(response_words)
     
-    # Add insights from regression/classification if available
     outputs = {}
     if 'regression' in outputs:
         reg_values = outputs['regression'][0].cpu().numpy()
@@ -1320,7 +1266,6 @@ def create_optimized_plots(argo_data, incois_data, selected_plot):
             plt.xticks(rotation=45)
     
     elif selected_plot == "Transfer Learning Features":
-        # Demonstrate vision features
         ax.text(0.5, 0.5, "ResNet50 Feature Visualization\n(Transfer Learning Active)", 
                 horizontalalignment='center', verticalalignment='center', 
                 transform=ax.transAxes, fontsize=16)
@@ -1464,10 +1409,8 @@ def show_data_overview(argo_data, incois_data):
 def show_chat_interface(processor, chroma_manager, argo_data, incois_data, sample_images):
     st.header("🤖 Multi-modal Ocean Data Assistant")
     
-    # Image upload for multi-modal input
     uploaded_image = st.file_uploader("Upload ocean image (optional)", type=['png', 'jpg', 'jpeg'])
     
-    # Train model on demand
     if 'multimodal_model' not in st.session_state:
         with st.spinner("🚀 Initializing multi-modal AI model..."):
             texts, targets = prepare_optimized_training_data(argo_data, incois_data)
@@ -1745,6 +1688,7 @@ with tab8:
     - ResearchGate
     - WIKIPEDIA
     """)
+
 
 
 

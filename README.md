@@ -10,7 +10,7 @@ Our project leverages **advanced AI and multi-modal learning techniques** to ana
 ---
 
 ## ℹ️ About Us
-Made with ❤️ by **NullPointer's** – Made for Development purposes in India.
+Made with ❤️ by **NullPointer's** – Made with love :-) for Development purposes in India. 
 
 ### Contributing Team:
 - Sanvi Kumari  - Leader & ui/ux backend role,presenter

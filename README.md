@@ -30,7 +30,7 @@ We, Null Pointers, have a deep passion for **Science and Technology** that drive
 - Google AI  
 - OpenAI  
 - DeepAI  
-- Special thanks to ***Jimmy Sir ** and mentors of **Internal SIH 2025**  
+- Special thanks to Jimmy Sir  and mentors of **Internal SIH 2025**  
 - Google Scholar  
 - ResearchGate  
 - Wikipedia  

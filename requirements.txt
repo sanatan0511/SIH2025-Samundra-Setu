@@ -7,7 +7,7 @@ streamlit-folium==0.17.0
 pyttsx3==2.90
 SpeechRecognition==3.10.0
 pygame==2.5.0
-requests==2.31.0
+requests==2.32.4
 torch==2.2.0
 torchvision==0.17.0
 chromadb==0.4.15
